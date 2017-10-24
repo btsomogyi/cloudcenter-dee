@@ -1,0 +1,49 @@
+- name: copy the ucp license to the remote machine
+  copy:
+    src=docker_subscription.lic dest=/tmp/
+- name: Check for existing UCP deployment (success = deployed)
+  shell: docker container ls | grep -i ucp | wc -l
+  register: deployed
+  failed_when: deployed.stdout|int == 0
+#  failed_when: "{{ deployed.stdout[0] }} != {{ ucp_bundle_image_count - 1 }}"
+  ignore_errors: True
+- block:   # Load images if offline install and no existing deployment
+  - name: Check node for needed UCP images (success = preloaded)
+    shell:
+      docker image ls | grep {{ UCP_Version | regex_replace('^([a-z]*\/[a-z]*):[\.0-9]*$', '\1') }} \
+      | grep {{ UCP_Version | regex_replace('^[a-z]*\/[a-z]*:([\.0-9]*)$', '\1')}} | wc -l
+    register: preloaded
+    failed_when: preloaded.stdout|int == 0
+#    failed_when: "{{ preloaded.stdout[0] }} != ucp_bundle_image_count"
+    ignore_errors: True
+  - name: Copy offline UCP image to Docker host
+    copy:
+      src={{ UCP_zip }} dest=/tmp/
+    when:
+      - preloaded|failure
+  - name: Load offline UCP image
+    shell: docker load -i /tmp/{{ UCP_zip | basename }}
+    when:
+      - preloaded|failure
+  when:
+    - deployed|failure
+    - offline_install
+# end block
+- name: Install UCP (download on demand if not preloaded)
+  shell: >
+    docker container run --rm -t --name ucp -v /var/run/docker.sock:/var/run/docker.sock {{ UCP_Version }} install \
+    --host-address {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }} \
+    --controller-port {{UCP_Port}} --admin-username {{UCP_Admin}} --admin-password {{UCP_Admin_Pass}} \
+    --license "$(cat /tmp/docker_subscription.lic)" --san "192.168.10.130,192.168.10.131,192.168.10.142"
+  when: deployed|failure
+#    --san "{{ item | join(',') }}"
+#  with_inventory_hostnames:
+#    - UCP:
+- name: capture swarm join token - manager
+  shell: >
+     docker swarm join-token manager |grep token | awk '{print $5}'
+  register: mgrtoken
+- name: capture swarm join token - worker
+  shell: >
+    docker swarm join-token worker |grep token | awk '{print $5}'
+  register: wrktoken

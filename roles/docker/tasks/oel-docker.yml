@@ -1,0 +1,58 @@
+- name: Copy deamon config file
+  copy:
+    src=rh-daemon.json dest=/etc/docker/daemon.json
+- name: Store EE repository URL
+  shell:
+    echo {{dee_url}}/oraclelinux > /etc/yum/vars/dockerurl
+  args:
+    creates: /etc/yum/vars/dockerurl
+- name: Store RHEL version for Docker
+  shell:
+    echo "7.3" > /etc/yum/vars/dockerosversion
+  args:
+    creates: /etc/yum/vars/dockerosversion
+- name: Install yum-utils
+  yum:
+    name: yum-utils
+    state: present
+- block: # Offline installation
+  - name: Copy Docker EE Package
+    copy: src={{ DockerEE_pkg }} dest=/tmp/{{ DockerEE_pkg | basename }}
+  - name: Install DockerEE rpm from a local file
+    yum:
+      name: /tmp/{{ DockerEE_pkg | basename }}
+      state: present
+  when: offline_install
+# end Offline install block
+- block: # Online installation
+  - name: Install yum repo for DEE 17.06
+    shell:
+      yum-config-manager --add-repo {{dee_url}}/oraclelinux/docker-ee.repo
+    args:
+      creates: /etc/yum.repos.d/docker-ee.repo
+  - name: Yum Cache Update
+    yum:
+      list: docker-ee
+      update_cache: yes
+  - name: Install Docker Enterprise Edition
+    yum:
+      name: docker-ee
+      state: latest
+  when: not offline_install
+# End online install block
+- name: Systemd daemon reload
+  shell:
+    systemctl daemon-reload
+- name: Enable Docker Enterprise Engine service
+  shell:
+    systemctl enable docker.service
+- name: Docker Engine Start
+  service:
+    name: docker.service
+    state: started
+- name: Check the Docker Enterprise Engine status
+  shell:
+    systemctl status docker.service
+- name: Validate Docker install
+  shell:
+    docker info

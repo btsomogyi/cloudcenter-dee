@@ -1,0 +1,39 @@
+- name: Install NTP Service - Yum
+  yum:
+    name: ntp
+    state: latest
+  when: (ansible_pkg_mgr == "yum")
+- name: Install NTP Service - Apt
+  apt:
+    name: ntp
+    state: latest
+  when: (ansible_pkg_mgr == "apt")
+- name: Make sure NTP is stopped
+  service:
+      name: ntpd
+      state: stopped
+      enabled: yes
+# - name: Check ntpd status
+#   shell: |
+#     systemctl status ntpd
+#   ignore_errors: true
+# - name: Time Query
+#   shell:
+#     ntpdate -q {{ntp_server}}
+#   when: result|failed
+- name: Time Sync initially with server {{ntp_server}}
+  shell:
+    ntpdate {{ntp_server}}
+#   when: result|failed
+# - name: Time Query
+#   shell:
+#     ntpdate -q {{ntp_server}}
+#   when: result|failed
+- name: Start NTP Service
+  service:
+    name: ntpd
+    state: started
+    enabled: yes
+- name: Check the NTPd status
+  shell:
+    systemctl status ntpd.service

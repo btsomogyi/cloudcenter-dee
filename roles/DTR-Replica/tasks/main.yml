@@ -1,0 +1,8 @@
+- name: Adding Manager Replicas
+  shell: >
+    docker run -t --rm docker/dtr:2.3.3 join \
+    --ucp-node hostvars[inventory_hostname]['ansible_default_ipv4']['address'] \
+    --ucp-insecure-tls  \
+    --ucp-url https://{{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:{{ UCP_Port }} \
+    --ucp-username {{ UCP_Admin }} --ucp-password {{ UCP_Admin_Pass }} \
+    --existing-replica-id {{ hostvars[groups['DTR-Initial'][0]]['replicaid']['stdout'] }}

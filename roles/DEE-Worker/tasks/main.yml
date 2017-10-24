@@ -1,0 +1,9 @@
+- name: Check node for swarm membership
+  shell: docker info | grep 'Swarm:.*inactive' | wc -l
+  register: result
+  failed_when: result.stdout|int == 1
+  ignore_errors: True
+- name: Join swarm as worker (DEE-Worker)
+  shell: >
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'][0]]['wrktoken']['stdout'] }} {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:2377
+  when: result|failure

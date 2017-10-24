@@ -1,0 +1,17 @@
+- name: Configure settings for Proxy for Docker
+  file:
+    path=/etc/systemd/system/docker.service.d
+    state=directory
+  when: proxy_host != ""
+- name: Copy config file
+  template:
+    src=http-proxy.conf dest=/etc/systemd/system/docker.service.d/
+  when: proxy_host != ""
+- name: Docker deamon config
+  file:
+    path=/etc/docker
+    state=directory
+- include: rhel-docker.yml
+  when: ansible_distribution == "RedHat"
+- include: oel-docker.yml
+  when: ansible_distribution == "OracleLinux"

@@ -1,0 +1,29 @@
+- hosts: DEE-Cluster
+  gather_facts: yes
+  roles:
+   - { role: common, when: configure_env }
+   - { role: yum, when: configure_env }
+   - { role: ntp, when: configure_env }
+   - firewall
+   - storage
+   - docker
+- hosts: UCP-Initial
+  gather_facts: yes
+  roles:
+   - UCP-Initial
+- hosts: UCP-Replicas
+  gather_facts: yes
+  roles:
+   - UCP-Replica
+- hosts: DTR-Initial
+  gather_facts: yes
+  roles:
+   - DTR-Initial
+- hosts: DTR-Replicas
+  gather_facts: yes
+  roles:
+   - DTR-Replica
+- hosts: DEE-Workers
+  gather_facts: yes
+  roles:
+   - DEE-Worker

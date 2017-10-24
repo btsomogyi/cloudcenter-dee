@@ -1,0 +1,5 @@
+- name: Confirm SE Linux disabled (must be disabled during EE install)
+  shell:
+    sestatus | grep -E 'SELinux.*enabled'
+  register: result
+  failed_when: "'enabled' in result.stdout"

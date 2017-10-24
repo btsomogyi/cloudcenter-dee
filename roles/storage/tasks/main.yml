@@ -1,0 +1,2 @@
+- include: rh-storage.yml
+  when: ansible_os_family == "RedHat"

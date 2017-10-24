@@ -1,0 +1,26 @@
+- name: Copying rhsm conf
+  template:
+    src=rhsm.conf dest=/etc/rhsm/rhsm.conf
+- name: Check RHSM registration status
+  shell: if subscription-manager version | grep 'not registered' ; then echo false; else echo true; fi
+  register: rhsm_registered
+  ignore_errors: True
+- name: Registering System to RHSM
+  shell:
+    subscription-manager register --force --username={{rhsm_user}} --password={{rhsm_password}}
+  when: rhsm_registered == "false"
+- name: Refresh Subscription Manager DB
+  shell:
+    subscription-manager refresh
+  when: rhsm_registered == "false"
+- name: Subscribing to Pool
+  shell:
+    subscription-manager attach --pool={{pool_id}}
+  when: rhsm_registered == "false"
+- name: Setting RHEL release version
+  shell:
+    subscription-manager release --set=7.3
+  when: rhsm_registered == "false"
+- name: Enabling Repos
+  shell:
+    subscription-manager repos --enable=rhel-7-server-rpms

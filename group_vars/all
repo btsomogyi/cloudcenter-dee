@@ -1,0 +1,25 @@
+## Global variables ##
+### set 'configure_env' to 'true' to generate/copy /etc/environment, .bash_profile,
+### /etc/hosts, and rhsm.conf files
+configure_env: "true"
+proxy_host: ""
+proxy_port: ""
+dee_url: ":
+ntp_server: ""
+rhsm_user: ""
+rhsm_password: ""
+pool_id: ""
+## Docker EE Details
+UCP_Version: "docker/ucp:2.2.3"
+UCP_Admin: "admin"
+UCP_Admin_Pass: "Cisco.123"
+UCP_Port: ""
+DTR_Version: "docker/dtr:2.3.3"
+#DTR_NFS_URL: ""
+## Offline Install
+### set 'offline_install' to 'true', then provide full path to Docker EE, UCP
+### and DTR image files
+offline_install: "true"
+DockerEE_pkg: ""
+UCP_zip: ""
+DTR_zip: ""

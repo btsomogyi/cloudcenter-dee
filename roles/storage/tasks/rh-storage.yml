@@ -1,0 +1,64 @@
+- name: Install LVM2
+  yum:
+    name: lvm2
+    state: present
+- name: Install device-mapper
+  yum:
+    name: device-mapper
+    state: present
+- name: Check for existing PV
+  shell: 
+    pvdisplay | grep '/dev/sdb' 
+  register: result
+  ignore_errors: True
+- name: Device Mapper Driver Configuration - Physical Volume Creation
+  shell:
+    pvcreate /dev/sdb
+  when: result|failed
+- name: Check for existing VG
+  shell: 
+    vgdisplay | grep 'Docker'
+  register: result
+  ignore_errors: True
+- name: Device Mapper Driver Configuration - Volume Group Creation
+  shell:
+    vgcreate Docker /dev/sdb
+  when: result|failed
+- name: Check for existing LV
+  shell: 
+    lvdisplay | grep 'Docker'
+  register: result
+  ignore_errors: True
+- name: Device Mapper Driver Configuration - Logical Volume Creation
+  shell:
+    lvcreate --wipesignatures y -n thinpool Docker -l 95%VG
+  when: result|failed
+- name: Device Mapper Driver Configuration - Logical Volume Creation
+  shell:
+    lvcreate --wipesignatures y -n thinpoolmeta Docker -l 1%VG
+  when: result|failed
+- name: Device Mapper Driver Configuration - Thinpool conversion
+  shell:
+    lvconvert -y --zero n -c 512K --thinpool Docker/thinpool --poolmetadata Docker/thinpoolmeta
+  when: result|failed
+- name: Device Mapper Driver Configuration - LVM profile Configuration
+  copy:
+    src=docker-thinpool.profile dest=/etc/lvm/profile/Docker-thinpool.profile
+- name: Device Mapper Driver Configuration - Applying new LVM profile
+  shell:
+    lvchange --metadataprofile Docker-thinpool Docker/thinpool
+- name: Device Mapper Driver Configuration - Setting LVM monitoring
+  shell:
+    lvs -o+seg_monitor
+- name: Device Mapper Driver Configuration - Checking PV status
+  shell:
+    pvs -a
+- name: Device Mapper Driver Configuration - Checking VG status
+  shell:
+    vgs -a
+- name: Device Mapper Driver Configuration - Checking LV status
+  shell:
+    lvs -a
+- name: Storage configuation status check
+  shell:
+    lsblk

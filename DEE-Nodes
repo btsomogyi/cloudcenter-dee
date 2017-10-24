@@ -1,0 +1,47 @@
+# This is the template ansible 'hosts' file for Docker EE Installation
+# Ensure the host entries for groups with multiple hosts end with trailing colon (":")
+# This file should be placed in /etc/ansible/hosts or specified on the playbook
+# command line with '-i DEE-Nodes'
+# For example:
+#DEE-Cluster:
+#  children:
+#    UCP:
+#      children:
+#        UCP-Initial:
+#          hosts:
+#            host1:
+#        UCP-Replicas:
+#          hosts:
+#            host2:
+#            host3:
+#    DTR:
+#      children:
+#        DTR-Initial:
+#          hosts:
+#            host4:
+#        DTR-Replicas:
+#          hosts:
+#            host5:
+#    DEE-Workers:
+#      hosts:
+#        host6:
+#        host7:
+
+DEE-Cluster:
+  children:
+    UCP:
+      children:
+        UCP-Initial:
+          hosts:
+        UCP-Replicas:
+          hosts:
+    DTR:
+      children:
+        DTR-Initial:
+          hosts:
+        DTR-Replicas:
+          hosts:
+    DEE-Workers:
+      hosts:
+    DEE-Windows:
+      hosts:

@@ -1,0 +1,11 @@
+LANG=en_US.utf-8
+LC_ALL=en_US.utf-8
+{% if proxy_host != "" %}
+export http_proxy=http://{{proxy_host}}{% if proxy_port != "" %}:{{proxy_port}}/{% endif %}
+
+export https_proxy=https://{{proxy_host}}{% if proxy_port != "" %}:{{proxy_port}}/{% endif %}
+
+export no_proxy=localhost,127.0.0.0/8,{% for host in groups['DEE-Cluster'] -%}
+   {{ hostvars[host]['ansible_default_ipv4']['address'] }}{% if loop.last == false -%},{% endif %}
+{% endfor %}
+{% endif %}

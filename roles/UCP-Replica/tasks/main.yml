@@ -1,0 +1,9 @@
+- name: Check if joined to Swarm
+  shell: docker node ls
+  register: result
+  failed_when: "'*' in result.stdout"
+  ignore_errors: True
+- name: Adding Manager Replicas
+  shell: >
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['mgrtoken']['stdout'] }} {{ hostvars[groups['UCP-Mgr'].0].ansible_default_ipv4.address }}:2377
+  when: result|success
