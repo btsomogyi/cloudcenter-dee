@@ -22,10 +22,11 @@
 #        DTR-Replicas:
 #          hosts:
 #            host5:
+#            host6:
 #    DEE-Workers:
 #      hosts:
-#        host6:
 #        host7:
+#        host8:
 
 DEE-Cluster:
   children:

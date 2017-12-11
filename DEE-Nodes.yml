@@ -2,11 +2,10 @@
   gather_facts: yes
   roles:
    - { role: common, when: configure_env }
-   - { role: yum, when: configure_env }
    - { role: ntp, when: configure_env }
-   - firewall
-   - storage
-   - docker
+   - {role: 'firewall', tags: 'firewall'}
+   - {role: 'storage', tags: 'storage'}
+   - {role: 'docker', tags: 'docker'}
 - hosts: UCP-Initial
   gather_facts: yes
   roles:

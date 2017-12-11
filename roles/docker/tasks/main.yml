@@ -7,11 +7,23 @@
   template:
     src=http-proxy.conf dest=/etc/systemd/system/docker.service.d/
   when: proxy_host != ""
-- name: Docker deamon config
-  file:
-    path=/etc/docker
-    state=directory
-- include: rhel-docker.yml
-  when: ansible_distribution == "RedHat"
-- include: oel-docker.yml
-  when: ansible_distribution == "OracleLinux"
+- name: Check for existing Docker install (success = installed)
+  shell: docker info
+  register: docker_installed
+  ignore_errors: True
+- block:
+  - name: Docker deamon config
+    file:
+      path=/etc/docker
+      state=directory
+  - include: rhel-docker.yml
+    when: ansible_distribution == "RedHat"
+  - include: oel-docker.yml
+    when: ansible_distribution == "OracleLinux"
+  - include: oel-docker.yml
+    when: ansible_distribution == "OracleLinux"
+  - include: centos-docker.yml
+    when: ansible_distribution == "CentOS"
+  when:
+    - docker_installed|failure
+# end block

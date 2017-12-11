@@ -1,9 +1,22 @@
-- name: Check if joined to Swarm
-  shell: docker node ls
-  register: result
-  failed_when: "'*' in result.stdout"
+- name: Firewall Port for the UCP web UI and API
+  firewalld:
+    port: "{{UCP_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Check node for swarm membership (success = joined)
+  shell: docker info | grep 'Swarm:' | awk '{print $2}'
+  register: ucp_swarmed
+#  failed_when: ucp_swarmed.stdout == 'inactive'
+#- name: Join swarm as worker (UCP)
+#  shell: >
+#    docker swarm join --token {{ hostvars[groups['UCP-Initial'][0]]['wkrtoken']['stdout'] }} \
+#      {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:2377
+#  when: ucp_swarmed.stdout == 'inactive'
+- name: Check Manager Token
+  debug: msg={{ hostvars[groups['UCP-Initial'].0]['mgrtoken'].stdout }}
   ignore_errors: True
 - name: Adding Manager Replicas
-  shell: >
-    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['mgrtoken']['stdout'] }} {{ hostvars[groups['UCP-Mgr'].0].ansible_default_ipv4.address }}:2377
-  when: result|success
+  shell:
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['mgrtoken'].stdout }} \
+      {{ hostvars[groups['UCP-Initial'].0].ansible_default_ipv4.address }}:2377
+  when: ucp_swarmed.stdout == 'inactive'

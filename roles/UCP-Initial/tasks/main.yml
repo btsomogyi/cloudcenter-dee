@@ -1,44 +1,28 @@
+- name: Firewall Port for the UCP web UI and API
+  firewalld:
+    port: "{{UCP_Port}}/tcp"
+    permanent: true
+    state: enabled
 - name: copy the ucp license to the remote machine
   copy:
     src=docker_subscription.lic dest=/tmp/
-- name: Check for existing UCP deployment (success = deployed)
-  shell: docker container ls | grep -i ucp | wc -l
-  register: deployed
-  failed_when: deployed.stdout|int == 0
+- name: Check for existing swarm cluster (success = clustered)
+  shell: docker info | grep 'Swarm:' | awk '{print $2}'
+  register: ucp_clustered
+#  failed_when: deployed.stdout|int == 0
 #  failed_when: "{{ deployed.stdout[0] }} != {{ ucp_bundle_image_count - 1 }}"
-  ignore_errors: True
-- block:   # Load images if offline install and no existing deployment
-  - name: Check node for needed UCP images (success = preloaded)
-    shell:
-      docker image ls | grep {{ UCP_Version | regex_replace('^([a-z]*\/[a-z]*):[\.0-9]*$', '\1') }} \
-      | grep {{ UCP_Version | regex_replace('^[a-z]*\/[a-z]*:([\.0-9]*)$', '\1')}} | wc -l
-    register: preloaded
-    failed_when: preloaded.stdout|int == 0
-#    failed_when: "{{ preloaded.stdout[0] }} != ucp_bundle_image_count"
-    ignore_errors: True
-  - name: Copy offline UCP image to Docker host
-    copy:
-      src={{ UCP_zip }} dest=/tmp/
-    when:
-      - preloaded|failure
-  - name: Load offline UCP image
-    shell: docker load -i /tmp/{{ UCP_zip | basename }}
-    when:
-      - preloaded|failure
-  when:
-    - deployed|failure
-    - offline_install
-# end block
-- name: Install UCP (download on demand if not preloaded)
+#  ignore_errors: True
+#- name: Check for existing swarm cluster (success = clustered)
+#  shell: docker node ls | grep -i Leader | wc -l
+#  register: clustered
+#  failed_when: deployed.stdout|int == 0
+#  failed_when: "{{ deployed.stdout[0] }} != {{ ucp_bundle_image_count - 1 }}"
+#  ignore_errors: True
+- name: create swarm cluster - capture join token
   shell: >
-    docker container run --rm -t --name ucp -v /var/run/docker.sock:/var/run/docker.sock {{ UCP_Version }} install \
-    --host-address {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }} \
-    --controller-port {{UCP_Port}} --admin-username {{UCP_Admin}} --admin-password {{UCP_Admin_Pass}} \
-    --license "$(cat /tmp/docker_subscription.lic)" --san "192.168.10.130,192.168.10.131,192.168.10.142"
-  when: deployed|failure
-#    --san "{{ item | join(',') }}"
-#  with_inventory_hostnames:
-#    - UCP:
+     docker swarm init | grep token | awk '{print $5}'
+  register: wkrtoken
+  when: ucp_clustered.stdout == 'inactive'
 - name: capture swarm join token - manager
   shell: >
      docker swarm join-token manager |grep token | awk '{print $5}'
@@ -46,4 +30,58 @@
 - name: capture swarm join token - worker
   shell: >
     docker swarm join-token worker |grep token | awk '{print $5}'
-  register: wrktoken
+  register: wkrtoken
+  when: ucp_clustered.stdout == 'active'
+- name: Check for existing UCP deployment (success = deployed)
+  shell: docker container ls | grep -i ucp | wc -l
+  register: ucp_deployed
+  failed_when: ucp_deployed.stdout|int == 0
+  ignore_errors: True
+- block:   # Load images if offline install and no existing deployment
+  - name: Check node for needed UCP images (success = preloaded)
+    shell:
+      docker image ls | grep {{ UCP_Version | regex_replace('^([a-z]*\/[a-z]*):[\.0-9]*$', '\1') }} \
+      | grep {{ UCP_Version | regex_replace('^[a-z]*\/[a-z]*:([\.0-9]*)$', '\1')}} | wc -l
+    register: ucp_preloaded
+    failed_when: ucp_preloaded.stdout|int == 0
+#    failed_when: "{{ preloaded.stdout[0] }} != ucp_bundle_image_count"
+    ignore_errors: True
+  - name: Copy offline UCP image to Docker host
+    copy:
+      src={{ UCP_zip }} dest=/tmp/
+    when:
+      - ucp_preloaded|failure
+  - name: Load offline UCP image
+    shell: docker load -i /tmp/{{ UCP_zip | basename }}
+    when:
+      - ucp_preloaded|failure
+  when:
+    - ucp_deployed|failure
+    - offline_install
+# end block
+- name: Generate SAN list
+  set_fact:
+    san_list: "{{ groups['DEE-Cluster'] | map(attribute='ansible_default_ipv4.address') | list }}"
+  ignore_errors: True
+- name: Check DE-Cluster Variable
+  debug: msg={{ groups['DEE-Cluster'] }}
+  ignore_errors: True
+- name: Check SAN List Variable
+  debug: msg={{ san_list }}
+  ignore_errors: True
+- name: Install UCP (download on demand if not preloaded)
+  shell: >
+    docker container run --rm -t --name ucp -v /var/run/docker.sock:/var/run/docker.sock {{ UCP_Version }} install \
+    --host-address {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }} \
+    --controller-port {{UCP_Port}} --admin-username {{UCP_Admin}} --admin-password {{UCP_Admin_Pass}} \
+    --license "$(cat /tmp/docker_subscription.lic)" \
+    --san "{{UCP_FQDN}},10.201.37.169,10.201.37.170,10.201.37.171" \
+    --external-service-lb "{{HRM_FQDN}}"
+#   --external-server-cert \
+# --external-service-lb value  Set the IP address of the load balancer that published services are expected to be reachable on
+# --external-server-cert       Customize the certificates used by the UCP web server
+# --existing-config            Use an existing UCP config during this installation. The install will fail if a config is not found
+  when: ucp_deployed|failure
+#    --san "{{ item | join(',') }}"
+#  with_inventory_hostnames:
+#    - UCP:

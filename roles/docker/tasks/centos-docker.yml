@@ -3,7 +3,7 @@
     src=rh-daemon.json dest=/etc/docker/daemon.json
 - name: Store EE repository URL
   shell:
-    echo {{dee_url}}/rhel > /etc/yum/vars/dockerurl
+    echo {{dee_url}}/centos > /etc/yum/vars/dockerurl
   args:
     creates: /etc/yum/vars/dockerurl
 - name: Store RHEL version for Docker
@@ -17,12 +17,12 @@
     state: present
 - name: Install yum repo for DEE 17.06
   shell:
-    yum-config-manager --add-repo {{dee_url}}/rhel/docker-ee.repo
+    yum-config-manager --add-repo {{dee_url}}/centos/docker-ee.repo
   args:
     creates: /etc/yum.repos.d/docker-ee.repo
 - name: Enable rhel7 extra rpm repo
   shell:
-    yum-config-manager --enable rhel-7-server-extras-rpms
+    yum-config-manager --enable centos-extras
 - name: Yum Cache Update
   yum:
     list: docker-ee

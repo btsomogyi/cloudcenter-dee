@@ -1,12 +1,14 @@
+- name: Copying enic driver
+  copy:
+    src=kmod-enic-2.3.0.39-rhel7u3.el7.x86_64.rpm dest=/root/kmod-enic-2.3.0.39-rhel7u3.el7.x86_64.rpm
 - name: install enic rpm from a local file
   yum:
     name: /root/kmod-enic-2.3.0.39-rhel7u3.el7.x86_64.rpm
     state: present
-  when: ansible_virtualization_type == ""
-#- name: Yum Update
-#  yum:
-#    name: '*'
-#    state: latest
+- name: Yum Update
+  yum:
+    name: '*'
+    state: latest
 - name: Check for reboot hint
   shell: |
     LAST_KERNEL=$(rpm -q --last kernel | perl -pe 's/^kernel-(\S+).*/$1/' | head -1);

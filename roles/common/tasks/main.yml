@@ -16,6 +16,8 @@
 - name: Copying bash profile
   template:
     src=bash_profile dest=/root/.bash_profile
+- include: ucs-rh-common.yml
+  when: ansible_virtualization_type == ""
 - include: rhel-common.yml
   when: ansible_distribution == "RedHat"
 - include: oel-common.yml

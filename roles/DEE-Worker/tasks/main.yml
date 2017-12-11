@@ -1,9 +1,20 @@
-- name: Check node for swarm membership
-  shell: docker info | grep 'Swarm:.*inactive' | wc -l
-  register: result
-  failed_when: result.stdout|int == 1
+- name: Firewall Port for the HRM web traffic
+  firewalld:
+    port: "{{HRM_HTTP_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Firewall Port for the DTR web UI and API
+  firewalld:
+    port: "{{HRM_HTTPS_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Check node for swarm membership (success = joined)
+  shell: docker info | grep 'Swarm:' | awk '{print $2}'
+  register: wkr_swarmed
+- name: Check Worker Token
+  debug: msg={{ hostvars[groups['UCP-Initial'].0]['wkrtoken'].stdout }}
   ignore_errors: True
-- name: Join swarm as worker (DEE-Worker)
+- name: Join swarm as worker (Worker)
   shell: >
-    docker swarm join --token {{ hostvars[groups['UCP-Initial'][0]]['wrktoken']['stdout'] }} {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:2377
-  when: result|failure
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['wkrtoken'].stdout }} {{ hostvars[groups['UCP-Initial'].0].ansible_default_ipv4.address }}:2377
+  when: wkr_swarmed.stdout == 'inactive'

@@ -1,0 +1,5 @@
+- hosts: Docker
+  gather_facts: yes
+  roles:
+   - {role: 'storage', tags: 'storage'}
+   - {role: 'docker', tags: 'docker'}

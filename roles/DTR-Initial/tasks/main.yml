@@ -1,58 +1,81 @@
-#- name: Check node for swarm membership (success = joined)
-#  shell: docker info | grep 'Swarm:.*inactive' | wc -l
-#  register: swarmed
-#  failed_when: swarmed.stdout|int == 1
-#  ignore_errors: True
-#- name: Join swarm as worker (DTR)
-#  shell: >
-#    docker swarm join --token {{ hostvars[groups['UCP-Initial'][0]]['wrktoken']['stdout'] }} {{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:2377
-#  when: swarmed|failure
+- name: Firewall Port for the DTR web UI and API
+  firewalld:
+    port: "{{DTR_HTTP_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Firewall Port for the DTR web UI and API
+  firewalld:
+    port: "{{DTR_HTTPS_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Check node for swarm membership (active = joined)
+  shell: docker info | grep 'Swarm:' | awk '{print $2}'
+  register: dtr1_swarmed
+- name: Check Worker Token
+  debug: msg={{ hostvars[groups['UCP-Initial'].0]['wkrtoken']['stdout'] }}
+  ignore_errors: True
+- name: Join swarm as worker (DTR)
+  shell: >
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['wkrtoken']['stdout'] }} {{ hostvars[groups['UCP-Initial'].0].ansible_default_ipv4.address }}:2377
+  when: dtr1_swarmed.stdout == 'inactive'
 - name: Check for existing DTR deployment (success = deployed)
   shell: docker container ls | grep -i dtr | wc -l
-  register: deployed
-  failed_when: deployed.stdout|int == 0
-#  failed_when: "{{ deployed.stdout[0] }} != {{ dtr_bundle_image_count - 1 }}"
+  register: dtr1_deployed
+  failed_when: dtr1_deployed.stdout|int == 0
   ignore_errors: True
 - block:   # Load images if offline install and no existing deployment
   - name: Check node for needed DTR images (success = preloaded)
     shell:
       docker image ls | grep {{ DTR_Version | regex_replace('^([a-z]*\/[a-z]*):[\.0-9]*$', '\1') }} \
       | grep {{ DTR_Version | regex_replace('^[a-z]*\/[a-z]*:([\.0-9]*)$', '\1')}} | wc -l
-    register: preloaded
-    failed_when: preloaded.stdout|int == 0
-#    failed_when: "{{ preloaded.stdout[0] }} != dtr_bundle_image_count"
+    register: dtr1_preloaded
+    failed_when: dtr1_preloaded.stdout|int == 0
     ignore_errors: True
     when:
       - offline_install
   #"docker/ucp:2.2.3"
   # convert "ansible" to "able"
   # {{ 'ansible' | regex_replace('^a.*i(.*)$', 'a\\1') }}
-
-  # convert "foobar" to "bar"
-  # {{ 'foobar' | regex_replace('^f.*o(.*)$', '\\1') }}
   - name: Copy offline DTR image to the remote machine
     copy:
       src={{ DTR_zip }} dest=/tmp/
     when:
-      - preloaded|failure
+      - dtr1_preloaded|failure
   - name: Load offline DTR image
     shell: docker load -i /tmp/{{ DTR_zip | basename }}
     when:
-      - preloaded|failure
+      - dtr1_preloaded|failure
   when:
-    - deployed|failure
+    - dtr1_deployed|failure
     - offline_install
 # end block
+- name: Check certificate variables
+  debug: msg={{ UCP_CERT = {{UCP_CERT}} DTR_CERT = {{DTR_CERT}} }}
+  ignore_errors: True
 - name: Install DTR (download on demand if not preloaded)
   shell: >
     docker run -t --rm {{ DTR_Version }} install \
-    --ucp-node "{{ hostvars[groups['DTR-Initial'][0]].ansible_default_ipv4.address }}" \
-    --ucp-insecure-tls \
+    --ucp-node {{ hostvars[groups['DTR-Initial'][0]].ansible_nodename }} \
     --ucp-username {{ UCP_Admin }} --ucp-password {{ UCP_Admin_Pass }} \
-    --ucp-url "https://{{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:{{ UCP_Port }}"
+    --ucp-url https://{{UCP_FQDN}}:443
+    --ucp-insecure-tls \
+    --replica-http-port {{DTR_HTTP_Port}} \
+    --replica-https-port {{DTR_HTTPS_Port}} \
+    {% if proxy_host != "" %}
+    --http-proxy http://{{proxy_host}}{% if proxy_port != "" %}:{{proxy_port}}/{% endif %}
+    --https-proxy https://{{proxy_host}}{% if proxy_port != "" %}:{{proxy_port}}/{% endif %}
+    --no-proxy {% for host in groups['DEE-Cluster'] -%}
+      {{ hostvars[host]['ansible_default_ipv4']['address'] }}{% if loop.last == false -%},{% endif %}
+    {% endfor %}{% if no_proxy != "" %},{{no_proxy}}{% endif %}
+    {% endif %}
+#    --dtr-cert "{{DTR_CERT}}" \
+#    --dtr-ca "{{DTR_CERT_CA}}" \
+#    --dtr-key "{{DTR_CERT_KEY}}" \
+#    --ucp-insecure-tls \
+#    --ucp-ca "{{UCP_CERT}}" \
 #   --nfs-storage-url {{ DTR_NFS_URL }}
   when:
-    - deployed|failure
+    - dtr1_deployed|failure
 - name: capture DTR replica ID
   shell: >
     docker ps|grep dtr-nginx|awk '{print $NF}' | cut -d'-' -f3

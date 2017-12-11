@@ -1,8 +1,38 @@
-- name: Adding Manager Replicas
+- name: Firewall Port for the DTR web UI and API
+  firewalld:
+    port: "{{DTR_HTTP_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Firewall Port for the DTR web UI and API
+  firewalld:
+    port: "{{DTR_HTTPS_Port}}/tcp"
+    permanent: true
+    state: enabled
+- name: Check node for swarm membership (success = joined)
+  shell: docker info | grep 'Swarm:' | awk '{print $2}'
+  register: dtr2_swarmed
+- name: Check Worker Token
+  debug: msg={{ hostvars[groups['UCP-Initial'].0]['wkrtoken'].stdout }}
+  ignore_errors: True
+- name: Join swarm as worker (DTR)
   shell: >
-    docker run -t --rm docker/dtr:2.3.3 join \
-    --ucp-node hostvars[inventory_hostname]['ansible_default_ipv4']['address'] \
-    --ucp-insecure-tls  \
-    --ucp-url https://{{ hostvars[groups['UCP-Initial'][0]].ansible_default_ipv4.address }}:{{ UCP_Port }} \
+    docker swarm join --token {{ hostvars[groups['UCP-Initial'].0]['wkrtoken'].stdout }} {{ hostvars[groups['UCP-Initial'].0].ansible_default_ipv4.address }}:2377
+  when: dtr2_swarmed.stdout == 'inactive'
+- name: Check for existing DTR deployment (success = deployed)
+  shell: docker container ls | grep -i dtr | wc -l
+  register: dtr2_deployed
+  failed_when: dtr2_deployed.stdout|int == 0
+  ignore_errors: True
+- name: Adding DTR Replicas
+  shell: >
+    docker run -t --rm {{DTR_Version}} join \
+    --ucp-node {{ hostvars[inventory_hostname].ansible_nodename }} \
+    --ucp-url https://{{UCP_FQDN}}:443 \
+    --ucp-insecure-tls \
     --ucp-username {{ UCP_Admin }} --ucp-password {{ UCP_Admin_Pass }} \
+    --replica-http-port {{DTR_HTTP_Port}} \
+    --replica-https-port {{DTR_HTTPS_Port}} \
     --existing-replica-id {{ hostvars[groups['DTR-Initial'][0]]['replicaid']['stdout'] }}
+#    --ucp-insecure-tls
+  when:
+    - dtr2_deployed|failure

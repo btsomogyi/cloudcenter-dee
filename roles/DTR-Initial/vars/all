@@ -1,2 +1,6 @@
 ### Number of docker images in offline DTR bundle (version 2.3.3)
-dtr_bundle_image_count: 10
+#dtr_bundle_image_count: 10
+UCP_CERT: "{{ lookup('file', {{UCP_CERT_FILE}}) }}"
+DTR_CERT: "{{ lookup('file', {{DTR_CERT_FILE}}) }}"
+DTR_CERT_CA: "{{ lookup('file', {{DTR_CERT_CA_FILE}}) }}"
+DTR_CERT_KEY: "{{ lookup('file', {{DTR_CERT_KEY_FILE}}) }}"

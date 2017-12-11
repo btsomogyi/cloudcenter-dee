@@ -1,3 +1,0 @@
-- name: Copying enic driver
-  copy:
-    src=kmod-enic-2.3.0.39-rhel7u3.el7.x86_64.rpm dest=/root/kmod-enic-2.3.0.39-rhel7u3.el7.x86_64.rpm
