@@ -103,7 +103,7 @@ This repo contains Ansible play-book code for deploying Docker Enterprise Editio
 
 44 directories, 39 files
 
-. Swarm/UCP cluster formation and DTR installations need to be done separately after running this playbook as of now. In near future we will add these 2 tasks as well into existing playbook.
+. Swarm/UCP cluster formation and DTR HA are supported, but at present, the DTR setup will initially fail.  Restarting after importing valid UCP TLS certificates will allow DTR setup to complete.
 
 . To run the playbook, one need to download entire directory structure on a build node and run following command, after editing DEE-Nodes file with cluster nodes details, putting values inside group_vars/all file -
 
